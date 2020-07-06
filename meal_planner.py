@@ -1,6 +1,6 @@
 # Imports
 from typing import List
-from IPython.display import display
+from IPython.display import display, clear_output
 from io import StringIO
 
 import numpy as np
@@ -34,6 +34,9 @@ def parse_data(raw_df):
     data = raw_df.rename(ingredient_columns, axis=1)
     ingredient_columns = list(ingredient_columns.values())
     other_columns = [x for x in data.columns if x != "Recipe Name" and x not in ingredient_columns]
+    
+    # sort recipes by name
+    data = data.sort_values("Recipe Name").reset_index(drop=True)    
 
     # clean data
     data = data.fillna("")
@@ -255,7 +258,6 @@ def build_widgets(data, options_dict):
     # Define behavior for clearing save widget when other widgets changed
     @output_widget.capture()
     def clear_selected_meal_plan(change):
-        #print(saved_plans_dropdown.options[0])
         saved_plans_dropdown.value = saved_plans_dropdown.options[0][1]
         
     num_recipes_selector.observe(clear_selected_meal_plan, names="value")
@@ -276,22 +278,25 @@ def build_widgets(data, options_dict):
 
 # Actually run the app, starting with a file upload widget
 def run_app():
+    
     file_output = wid.Output()
     file_widget = wid.FileUpload(accept=".csv")
-
+    
     @file_output.capture()
-    def get_uploaded_file(change):
-        #print(change["new"])
-        file_to_string = StringIO(
-            str(
-                change["new"][
-                    list(file_widget.value.keys())[0]
-                ]["content"],
-                encoding = 'utf-8'
-            )
-        ) 
-
-        raw_df = pd.read_csv(file_to_string)
+    def build_app_from_file(file_string):
+        
+        # clear cell in case we are loading a new file
+        clear_output()        
+        
+        raw_df = pd.read_csv(file_string)
+        # catch misformatted files
+        if "Recipe Name" not in raw_df.columns:
+            print("ERROR: No column in your file called 'Recipe Name'")
+            return None
+        elif len([x for x in raw_df.columns if x.startswith("Ingredients: ")]) == 0:
+            print("ERROR: No column in your file for 'Ingredients:'")
+            return None
+            
         data, ingredient_type_map, other_columns = parse_data(raw_df)
         arg_dict = {
             title: wid.Checkbox(
@@ -301,16 +306,6 @@ def run_app():
             ) for title in data["Recipe Name"].to_list()
         }
 
-    #     ui = multi_checkbox_widget(data, arg_dict)
-    #     num_recipes_selector = wid.ToggleButtons(
-    #         options=[3, 4, 5, 6, 7],
-    #         value = 5,
-    #         description='Number of Recipes:',
-    #         style={"description_width":"120px"},
-    #         layout = wid.Layout(width="100px")
-    #     )
-
-        #save_button, saved_plans_dropdown = build_save_widgets()
         multi_select, num_recipes_selector, saved_plans_dropdown, save_button = build_widgets(data, arg_dict)
 
         # pass output of parse_data in as **args
@@ -353,8 +348,25 @@ def run_app():
                     )
                 ]
             )
+        )        
+
+    @file_output.capture()
+    def get_uploaded_file(change):
+        
+        file_to_string = StringIO(
+            str(
+                change["new"][
+                    list(file_widget.value.keys())[0]
+                ]["content"],
+                encoding = 'utf-8'
+            )
         )
+        
+        build_app_from_file(file_to_string)
 
     file_widget.observe(get_uploaded_file, names="value")
     display(file_widget)
     display(file_output)
+    
+    # only run this on load
+    build_app_from_file("data/sample.csv")

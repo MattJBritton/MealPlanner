@@ -1,5 +1,6 @@
 # Repo-specific
-/data/*
+/data/recipes.csv
+credentials.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
