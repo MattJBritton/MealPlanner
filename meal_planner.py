@@ -208,14 +208,17 @@ def build_widgets(data, options_dict):
     # Wire the search field to the checkboxes
     @output_widget.capture()
     def on_text_change(change):
-        search_input = str.lower(change['new'].strip('').replace(' ', '_'))
-        if search_input == '':
+        recipe_search_input = '(?i)'+str.lower(change['new'].strip(''))
+        ingredient_search_input = recipe_search_input.replace(' ', '_')
+        if recipe_search_input == '':
             # Reset search field
             new_options = sorted(options, key = lambda x: x.value, reverse = True)
         else:
             # Get matches by name
             # close_matches = [x for x in list(options_dict.keys()) if str.lower(search_input.strip('')) in str.lower(x)]
-            close_matches = data.query("`Recipe Name`.str.contains(@search_input) or Ingredients.str.contains(@search_input)")["Recipe Name"].to_list()
+            close_matches = data.query(
+                "`Recipe Name`.str.contains(@recipe_search_input) or Ingredients.str.contains(@ingredient_search_input)"
+            )["Recipe Name"].to_list()
             new_options = sorted(
                 [x for x in options if x.description in close_matches], 
                 key = lambda x: x.value, reverse = True
